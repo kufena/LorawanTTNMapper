@@ -1,19 +1,34 @@
 # GPS TTN mapping code.
 
-This is a fix-up of the example lorawan code, the only lorawan example I could find that would
-actually compile and run on my device - a DISCO-L072CZ-LRWAN1 board.  The original project
-can be found at
+The only lorawan example I could find that would
+actually compile and run on my device - a DISCO-L072CZ-LRWAN1 board - can be found at:
 
     https://github.com/janjongboom/mbed-os-example-lorawan-minimal
 
-It uses a MakerHawk GPS based on the Neo-6M UBlox chip, to send lat/lon and other data as a packet
-to the Things Network.  This is then passed to the TTNMapper.org website.
+I have modified this project, so that it uses a MakerHawk GPS based on the Neo-6M UBlox chip, 
+to send lat/lon and other data as a packet
+to the Things Network.  This is then passed to the TTNMapper.org website via an integration.
 
 I like this because it is a board I can run from a battery using USB, and it is fairly fast to
 update.  I have not, as yet, tested this over multiple different gateways though, so might need
 some resilience added to search for new gateways and so on.
 
+It runs disconnected from a laptop or connected.  If connected you can see what is going
+on using a serial console.
+If you are not connected, then the boards LED1 lights up when it is connected to a gateway,
+and LED2 (one of the pair of LEDs both together) lights up if there is no fix on the gps.
+
+The gps code is a bit hit or miss - it is in a folder on its own.
+It is blocking code, and uses the binary UBX commands Navposllh and Navstatus.
+However, it reads the serial port until it finds the codes for one or other of these
+messages.  If the gps is disconnected, that code hangs, so it won't return.
+
+The gps code sends some bytes to turn off most/all messages and then switches on the
+two that we look for.  This is in the init code.
+
 Below is the rest of the Readme from the original project/example.
+Note, I coded this in/using the mbed online editor and compiler, and then exported it using the
+VS Code option, so whether this will compile, i don't know.
 
 # Example LoRaWAN application for Mbed-OS
 
