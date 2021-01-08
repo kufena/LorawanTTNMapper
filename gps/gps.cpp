@@ -1,6 +1,7 @@
 #include "mbed.h"
 #include "gps.h"
 
+#include "trace_helper.h"
 
 // Serial connection to the GPS
 RawSerial *gps = new RawSerial(D8, D2, 9600);
@@ -28,6 +29,21 @@ void MyGPSClass::calcChecksum(unsigned char* CK, int msgSize) {
 int MyGPSClass::compareMsgHeader(const unsigned char* msgHeader) {
   unsigned char* ptr = (unsigned char*)(&ubxMessage);
   return ptr[0] == msgHeader[0] && ptr[1] == msgHeader[1];
+}
+
+static char* msgToString(int msgtype) {
+    switch (msgtype) {
+        case MT_NAV_DOP:
+            return (char*) "MT_NAV_DOP";
+        case MT_NAV_STATUS:
+            return (char*) "MT_NAV_STATUS";
+        case MT_NAV_POSLLH:
+            return (char*) "MT_NAV_POSLLH";
+        case MT_NONE:
+            return (char*) "MT_NONE";
+        default:
+            return (char*) "unknown"; 
+    }   
 }
 
 // Reads in bytes from the GPS module and checks to see if a valid message has been constructed.
@@ -71,10 +87,17 @@ int MyGPSClass::processGPS() {
         if ( compareMsgHeader(NAV_POSLLH_HEADER) ) {
           currentMsgType = MT_NAV_POSLLH;
           payloadSize = sizeof(NAV_POSLLH);
+          //printf("Found a NAV POSLLH %d\r\n", payloadSize);
         }
         else if ( compareMsgHeader(NAV_STATUS_HEADER) ) {
           currentMsgType = MT_NAV_STATUS;
           payloadSize = sizeof(NAV_STATUS);
+          //printf("Foudn a NAV STATUS %d\r\n", payloadSize);
+        }
+        else if ( compareMsgHeader(NAV_DOP_HEADER) ) {
+          currentMsgType = MT_NAV_DOP;
+          payloadSize = sizeof(NAV_DOP);
+          //printf("Found a NAV DOP %d %d\r\n", payloadSize, sizeof(NAV_DOP));
         }
         else {
           // unknown message type, bail
@@ -94,6 +117,7 @@ int MyGPSClass::processGPS() {
         if ( c != checksum[0] ) {
           // Checksum doesn't match, reset to beginning state and try again.
           fpos = 0; 
+          printf("first check sum failed %s!!!\r\n", msgToString(currentMsgType));
         }
       }
       else if ( fpos == (payloadSize+4) ) {
@@ -103,6 +127,8 @@ int MyGPSClass::processGPS() {
         if ( c == checksum[1] ) {
           // Checksum matches, we have a valid message.
           return currentMsgType; 
+        } else {
+          printf("second check sum failed %s!\r\n", msgToString(currentMsgType));
         }
       }
       else if ( fpos > (payloadSize+4) ) {
@@ -123,6 +149,11 @@ void MyGPSClass::getStatus() {
 
 void MyGPSClass::getLatLon() {
     while(processGPS()!= MT_NAV_POSLLH)
+        ;
+}
+
+void MyGPSClass::getDOP() {
+    while(processGPS()!= MT_NAV_DOP)
         ;
 }
 
