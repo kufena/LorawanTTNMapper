@@ -162,6 +162,12 @@ static void writeToBuffUL(unsigned long value, char* buffer, int pos) {
     }
 }
 
+static void writeToBuffUS(unsigned short value, char* buffer, int pos) {
+    for (int i = 0; i < 2; i++) {
+        buffer[pos+i] = ((value >> (8 * i)) & 0XFF);
+    }
+}
+
 /**
  * Sends a message to the Network Server
  */
@@ -176,8 +182,11 @@ static void send_message()
     // read the gps status message. 
     myGPS.getStatus();
     char fix = myGPS.ubxMessage.navStatus.gpsFix;
+    char fixok = (myGPS.ubxMessage.navStatus.flags & 0x01);
     
-    if (fix != 3) {
+    printf("\r\nfix:: %d, fix2:: %d\r\n",(int)fix,(int)fixok);
+    
+    if (fixok == 0) {
         printf("No Fix - no send.\r\n");
         myled2 = 1;
         ev_queue.call_in(3000, send_message);
@@ -191,6 +200,7 @@ static void send_message()
     long lon = myGPS.ubxMessage.navPosllh.lon;
     long lat = myGPS.ubxMessage.navPosllh.lat;
     long height = myGPS.ubxMessage.navPosllh.height;
+    long msl = myGPS.ubxMessage.navPosllh.hMSL;
     unsigned long hacc = myGPS.ubxMessage.navPosllh.hAcc;
     unsigned long vacc = myGPS.ubxMessage.navPosllh.vAcc;
     unsigned long ulon = 0;
@@ -213,6 +223,13 @@ static void send_message()
         ulat = (unsigned long) (lat);
         neglat = 0;
     }
+    
+    printf("\r\nSize of DOP msg is 4 + %d + 2 I guess\r\n",sizeof(NAV_DOP));
+    printf("\r\nDoing DOP stuff!\r\n");
+    
+    myGPS.getDOP();
+    unsigned short hdop = myGPS.ubxMessage.navDOP.hDOP;
+    
     printf("\r\n %ld, %lu, %d, %lu, %d, %ld, %lu, %lu, %d", lon, ulon,(int)neglon,ulat,(int)neglat,height,hacc,vacc,(int)fix);
     
     // write values to tx_buffer for transmission.
@@ -224,7 +241,10 @@ static void send_message()
     writeToBuffUL(vacc, (char*)tx_buffer, 17);
     tx_buffer[21] = neglon;
     tx_buffer[22] = neglat;
-    packet_len = 24;
+    writeToBuffUS(hdop, (char*)tx_buffer, 23);
+    writeToBuffL(msl, (char*)tx_buffer, 25);
+    tx_buffer[29] = fixok;
+    packet_len = 31;
 
     // send it.
     retcode = lorawan.send(MBED_CONF_LORA_APP_PORT, tx_buffer, packet_len,
